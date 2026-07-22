@@ -1,31 +1,10 @@
-<!-- src/components/PdfViewer.svelte -->
-<script lang="ts">
-  import {
-    PDFViewer,
-    type EmbedPdfContainer,
-    type PluginRegistry,
-    type ToolbarItem,
-    type UICapability
-  } from '@embedpdf/svelte-pdf-viewer';
+import {
+  type PluginRegistry,
+  type ToolbarItem,
+  type UICapability
+} from '@embedpdf/svelte-pdf-viewer'
 
-  export let src: string | undefined = undefined;
-
-  const captureViewerContainer = (container: EmbedPdfContainer) => {
-    const root = container.shadowRoot;
-    if (!root || root.querySelector('[data-fastfill-toolbar-layout]')) return;
-
-    const styles = document.createElement('style');
-    styles.dataset.fastfillToolbarLayout = '';
-    styles.textContent = `
-      [data-epdf-i="main-toolbar"] {
-        display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      }
-    `;
-    root.append(styles);
-  };
-
-  const customizeViewerUI = (registry: PluginRegistry) => {
+export const centerNavbar = (registry: PluginRegistry) => {
     const ui = registry.getPlugin('ui')?.provides?.() as
       | UICapability
       | undefined;
@@ -129,21 +108,3 @@
     });
 
   };
-</script>
-
-<div class="viewer">
-  <PDFViewer
-    config={{
-      src,
-      theme: {
-        preference: 'dark'
-      },
-      ui: {
-        disabledCategories: ['insert']
-      }
-    }}
-    oninit={captureViewerContainer}
-    onready={customizeViewerUI}
-    class="w-full h-screen"
-  />
-</div>

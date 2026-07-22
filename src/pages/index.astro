@@ -1,17 +1,15 @@
 ---
-import '../styles/globals.css';
-import PDFWrapper from '../components/PDFWrapper.svelte';
+import "../styles/globals.css";
+import PDFWrapper from "../components/pdf-wrapper/PDFWrapper.svelte";
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<title>Fastfill</title>
-	</head>
-	<body>
-  <PDFWrapper
-    client:load
-  />
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Fastfill</title>
+  </head>
+  <body>
+    <PDFWrapper client:load />
+  </body>
 </html>
