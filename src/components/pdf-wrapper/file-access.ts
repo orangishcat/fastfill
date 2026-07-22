@@ -6,6 +6,7 @@ import {
   type HistoryCapability,
   type PluginRegistry,
 } from '@embedpdf/svelte-pdf-viewer';
+import { createLogger } from '../../lib/logger';
 
 const AUTOSAVE_DELAY_MS = 1500;
 const OPEN_COMMAND_ID = 'document:open';
@@ -20,6 +21,7 @@ const PDF_PICKER_OPTIONS = {
     }
   ]
 };
+const log = createLogger('pdf:file-access');
 
 type WritableFileHandle = FileSystemFileHandle & {
   queryPermission: (
@@ -55,13 +57,27 @@ export const fileAccessReady = (registry: PluginRegistry) => {
   const history = registry.getPlugin('history')?.provides?.() as
     | HistoryCapability
     | undefined;
-  if (!commands || !documentManager || !exporter || !history) return;
+  if (!commands || !documentManager || !exporter || !history) {
+    log.warn(
+      {
+        commands: Boolean(commands),
+        documentManager: Boolean(documentManager),
+        exporter: Boolean(exporter),
+        history: Boolean(history)
+      },
+      'File access initialization skipped because capabilities are missing'
+    );
+    return;
+  }
+
+  log.debug('Initializing file access and autosave');
 
   const saveDocument = async (documentId: string) => {
     const handle = fileHandles.get(documentId);
     if (!handle) return;
 
     try {
+      log.debug({ documentId }, 'Autosave started');
       const buffer = await exporter
         .forDocument(documentId)
         .saveAsCopy()
@@ -69,8 +85,9 @@ export const fileAccessReady = (registry: PluginRegistry) => {
       const writable = await handle.createWritable();
       await writable.write(buffer);
       await writable.close();
+      log.debug({ documentId, bytes: buffer.byteLength }, 'Autosave completed');
     } catch (error) {
-      console.error('Unable to autosave PDF', error);
+      log.error({ documentId, error }, 'Autosave failed');
     }
   };
 
@@ -86,7 +103,10 @@ export const fileAccessReady = (registry: PluginRegistry) => {
   };
 
   const scheduleAutosave = (documentId: string) => {
-    if (!fileHandles.has(documentId)) return;
+    if (!fileHandles.has(documentId)) {
+      log.debug({ documentId }, 'Autosave skipped without a writable file');
+      return;
+    }
 
     const pendingTimer = autosaveTimers.get(documentId);
     if (pendingTimer) clearTimeout(pendingTimer);
@@ -98,11 +118,16 @@ export const fileAccessReady = (registry: PluginRegistry) => {
         enqueueAutosave(documentId);
       }, AUTOSAVE_DELAY_MS)
     );
+    log.debug(
+      { documentId, delayMs: AUTOSAVE_DELAY_MS },
+      'Autosave scheduled'
+    );
   };
 
   const openDocument: Command['action'] = async () => {
     const browserWindow = window as FilePickerWindow;
     if (!browserWindow.showOpenFilePicker) {
+      log.info('File System Access API unavailable; using viewer file dialog');
       documentManager.openFileDialog();
       return;
     }
@@ -117,6 +142,10 @@ export const fileAccessReady = (registry: PluginRegistry) => {
         (await handle.requestPermission(WRITE_PERMISSION_OPTIONS)) ===
           'granted';
       const file = await handle.getFile();
+      log.debug(
+        { fileName: file.name, fileSize: file.size, canWrite },
+        'Opening selected PDF'
+      );
       const response = await documentManager
         .openDocumentBuffer({
           buffer: await file.arrayBuffer(),
@@ -124,10 +153,23 @@ export const fileAccessReady = (registry: PluginRegistry) => {
         })
         .toPromise();
       await response.task.toPromise();
-      if (canWrite) fileHandles.set(response.documentId, handle);
+      if (canWrite) {
+        fileHandles.set(response.documentId, handle);
+      } else {
+        log.warn(
+          { documentId: response.documentId },
+          'PDF opened without autosave because write permission was denied'
+        );
+      }
+      log.info(
+        { documentId: response.documentId, canWrite },
+        'PDF opened'
+      );
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.error('Unable to open PDF', error);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        log.debug('PDF selection canceled');
+      } else {
+        log.error({ error }, 'Unable to open PDF');
       }
     }
   };
@@ -141,6 +183,7 @@ export const fileAccessReady = (registry: PluginRegistry) => {
     categories: ['document', 'document-open'],
     action: openDocument
   });
+  log.debug({ commandId: OPEN_COMMAND_ID }, 'Open command registered');
 
   unsubscribers.push(
     history.onHistoryChange(({ documentId }) => {
@@ -152,6 +195,7 @@ export const fileAccessReady = (registry: PluginRegistry) => {
       autosaveTimers.delete(documentId);
       saveQueues.delete(documentId);
       fileHandles.delete(documentId);
+      log.debug({ documentId }, 'File access state cleared');
     })
   );
 };
@@ -159,4 +203,9 @@ export const fileAccessReady = (registry: PluginRegistry) => {
 export const fileAccessDestroy = () => {
   unsubscribers.forEach((unsubscribe) => unsubscribe());
   autosaveTimers.forEach((timer) => clearTimeout(timer));
+  unsubscribers.length = 0;
+  autosaveTimers.clear();
+  saveQueues.clear();
+  fileHandles.clear();
+  log.debug('File access destroyed');
 }

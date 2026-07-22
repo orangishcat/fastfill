@@ -4,12 +4,17 @@ import {
   type EmbedPdfContainer,
   type UICapability
 } from '@embedpdf/svelte-pdf-viewer'
+import { createLogger } from '../../lib/logger';
 
 let toolbarObserver: MutationObserver | undefined;
+const log = createLogger('pdf:ui');
 
 export const injectGridCss = (container: EmbedPdfContainer) => {
   const root = container.shadowRoot;
-  if (!root) return;
+  if (!root) {
+    log.warn('Grid styles not injected because the viewer shadow root is missing');
+    return;
+  }
 
   const applyMainToolbarLayout = () => {
     if (!root.querySelector('[data-fastfill-toolbar-layout]')) {
@@ -22,6 +27,7 @@ export const injectGridCss = (container: EmbedPdfContainer) => {
         }
       `;
       root.append(styles);
+      log.debug('Navbar grid styles injected');
     }
 
     const toolbar = root.querySelector(
@@ -34,19 +40,26 @@ export const injectGridCss = (container: EmbedPdfContainer) => {
   applyMainToolbarLayout();
   toolbarObserver = new MutationObserver(applyMainToolbarLayout);
   toolbarObserver.observe(root, { childList: true, subtree: true });
+  log.debug('Navbar layout observer started');
 };
 
 export const centerNavbar = (registry: PluginRegistry) => {
     const ui = registry.getPlugin('ui')?.provides?.() as
       | UICapability
       | undefined;
-    if (!ui) return;
+    if (!ui) {
+      log.warn('Viewer UI customization skipped because capability is missing');
+      return;
+    }
 
     const schema = ui.getSchema();
     const annotationToolbar = schema.toolbars['annotation-toolbar'];
     const insertToolbar = schema.toolbars['insert-toolbar'];
     const mainToolbar = schema.toolbars['main-toolbar'];
-    if (!annotationToolbar || !insertToolbar || !mainToolbar) return;
+    if (!annotationToolbar || !insertToolbar || !mainToolbar) {
+      log.warn('Viewer UI customization skipped because toolbars are missing');
+      return;
+    }
 
     const insertButtons = insertToolbar.items.flatMap((item) =>
       item.type === 'group' && item.id === 'insert-tools'
@@ -99,6 +112,7 @@ export const centerNavbar = (registry: PluginRegistry) => {
         }
       }
     });
+    log.debug({ insertButtonCount: insertButtons.length }, 'Annotate toolbar updated');
 
     const findMainItem = (id: string) =>
       mainToolbar.items.find((item) => item.id === id);
@@ -112,7 +126,10 @@ export const centerNavbar = (registry: PluginRegistry) => {
       leftItems.some((item) => !item) ||
       centerItems.some((item) => !item) ||
       !rightGroup
-    ) return;
+    ) {
+      log.warn('Navbar customization skipped because expected items are missing');
+      return;
+    }
 
     ui.mergeSchema({
       toolbars: {
@@ -138,8 +155,11 @@ export const centerNavbar = (registry: PluginRegistry) => {
         }
       }
     });
+    log.info('Viewer toolbar customization applied');
   };
 
 export const destroyNavbarObserver = () => {
   toolbarObserver?.disconnect();
+  toolbarObserver = undefined;
+  log.debug('Navbar layout observer stopped');
 }
