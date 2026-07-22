@@ -1,0 +1,14 @@
+[
+  {
+    "label": "dev",
+    "command": "bun run dev",
+  },
+  {
+    "label": "build",
+    "command": "bun run build",
+  },
+  {
+    "label": "preview",
+    "command": "bun run preview"
+  }
+]
