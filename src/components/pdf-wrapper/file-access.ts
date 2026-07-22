@@ -2,7 +2,6 @@ import {
   type Command,
   type CommandsCapability,
   type DocumentManagerCapability,
-  type EmbedPdfContainer,
   type ExportCapability,
   type HistoryCapability,
   type PluginRegistry,
@@ -42,36 +41,6 @@ const fileHandles = new Map<string, WritableFileHandle>();
 const autosaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const saveQueues = new Map<string, Promise<void>>();
 const unsubscribers: Array<() => void> = [];
-let toolbarObserver: MutationObserver | undefined;
-
-export const fileAccessInit = (container: EmbedPdfContainer) => {
-  const root = container.shadowRoot;
-  if (!root) return;
-
-  const applyMainToolbarLayout = () => {
-    if (!root.querySelector('[data-fastfill-toolbar-layout]')) {
-      const styles = document.createElement('style');
-      styles.dataset.fastfillToolbarLayout = '';
-      styles.textContent = `
-        .grid\\! { display: grid !important; }
-        .grid-cols-3\\! {
-          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        }
-      `;
-      root.append(styles);
-    }
-
-    const toolbar = root.querySelector(
-      '[data-epdf-i="main-toolbar"]'
-    );
-    toolbar?.classList.add('grid!', 'grid-cols-3!');
-  };
-
-  toolbarObserver?.disconnect();
-  applyMainToolbarLayout();
-  toolbarObserver = new MutationObserver(applyMainToolbarLayout);
-  toolbarObserver.observe(root, { childList: true, subtree: true });
-};
 
 export const fileAccessReady = (registry: PluginRegistry) => {
   const commands = registry.getPlugin('commands')?.provides?.() as
@@ -188,7 +157,6 @@ export const fileAccessReady = (registry: PluginRegistry) => {
 };
 
 export const fileAccessDestroy = () => {
-  toolbarObserver?.disconnect();
   unsubscribers.forEach((unsubscribe) => unsubscribe());
   autosaveTimers.forEach((timer) => clearTimeout(timer));
 }

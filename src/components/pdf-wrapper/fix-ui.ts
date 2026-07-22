@@ -1,8 +1,40 @@
 import {
   type PluginRegistry,
   type ToolbarItem,
+  type EmbedPdfContainer,
   type UICapability
 } from '@embedpdf/svelte-pdf-viewer'
+
+let toolbarObserver: MutationObserver | undefined;
+
+export const injectGridCss = (container: EmbedPdfContainer) => {
+  const root = container.shadowRoot;
+  if (!root) return;
+
+  const applyMainToolbarLayout = () => {
+    if (!root.querySelector('[data-fastfill-toolbar-layout]')) {
+      const styles = document.createElement('style');
+      styles.dataset.fastfillToolbarLayout = '';
+      styles.textContent = `
+        .grid\\! { display: grid !important; }
+        .grid-cols-3\\! {
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+      `;
+      root.append(styles);
+    }
+
+    const toolbar = root.querySelector(
+      '[data-epdf-i="main-toolbar"]'
+    );
+    toolbar?.classList.add('grid!', 'grid-cols-3!');
+  };
+
+  toolbarObserver?.disconnect();
+  applyMainToolbarLayout();
+  toolbarObserver = new MutationObserver(applyMainToolbarLayout);
+  toolbarObserver.observe(root, { childList: true, subtree: true });
+};
 
 export const centerNavbar = (registry: PluginRegistry) => {
     const ui = registry.getPlugin('ui')?.provides?.() as
@@ -106,5 +138,8 @@ export const centerNavbar = (registry: PluginRegistry) => {
         }
       }
     });
-
   };
+
+export const destroyNavbarObserver = () => {
+  toolbarObserver?.disconnect();
+}

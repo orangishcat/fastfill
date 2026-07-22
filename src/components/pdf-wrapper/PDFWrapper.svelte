@@ -7,21 +7,22 @@
     type PluginRegistry,
   } from '@embedpdf/svelte-pdf-viewer';
 
-  import { centerNavbar } from './fix-ui';
-  import { fileAccessInit, fileAccessReady, fileAccessDestroy } from './file-access';
+  import { centerNavbar, destroyNavbarObserver, injectGridCss } from './fix-ui';
+  import { fileAccessReady, fileAccessDestroy } from './file-access';
   export let src: string | undefined = undefined;
+
+  const onInit = (container: EmbedPdfContainer) => {
+    injectGridCss(container);
+  }
 
   const onReady = (registry: PluginRegistry) => {
     fileAccessReady(registry);
     centerNavbar(registry);
   }
 
-  const onInit = (container: EmbedPdfContainer) => {
-    fileAccessInit(container);
-  }
-
   onDestroy(() => {
     fileAccessDestroy();
+    destroyNavbarObserver();
   });
 </script>
 
