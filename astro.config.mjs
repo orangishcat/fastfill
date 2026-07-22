@@ -1,9 +1,12 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-
+import tailwindcss from '@tailwindcss/vite';
+import { webcore } from 'webcoreui/integration';
 import svelte from '@astrojs/svelte';
 
-// https://astro.build/config
 export default defineConfig({
-  integrations: [svelte()]
+  integrations: [webcore(), svelte()],
+  vite: {
+    plugins: [tailwindcss()]
+  }
 });

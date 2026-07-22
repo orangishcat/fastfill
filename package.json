@@ -13,8 +13,13 @@
   },
   "dependencies": {
     "@astrojs/svelte": "^9.0.1",
+    "@embedpdf/snippet": "^2.14.4",
+    "@embedpdf/svelte-pdf-viewer": "^2.14.4",
+    "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.1.3",
-    "svelte": "^5.56.7",
-    "typescript": "^6.0.3"
+    "lucide-astro": "^0.556.0",
+    "sass": "^1.101.3",
+    "tailwindcss": "^4.3.3",
+    "webcoreui": "^1.5.0"
   }
 }

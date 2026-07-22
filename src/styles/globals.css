@@ -1,0 +1,22 @@
+@config "../../tailwind.config.mjs";
+@import "tailwindcss";
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html,
+  body {
+    @apply m-0 h-full overflow-hidden bg-background text-text;
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+
+  button,
+  input {
+    @apply font-sans;
+  }
+}
