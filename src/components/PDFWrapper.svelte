@@ -1,8 +1,134 @@
 <!-- src/components/PdfViewer.svelte -->
 <script lang="ts">
-  import { PDFViewer } from '@embedpdf/svelte-pdf-viewer';
+  import {
+    PDFViewer,
+    type EmbedPdfContainer,
+    type PluginRegistry,
+    type ToolbarItem,
+    type UICapability
+  } from '@embedpdf/svelte-pdf-viewer';
 
-  export let src: string;
+  export let src: string | undefined = undefined;
+
+  const captureViewerContainer = (container: EmbedPdfContainer) => {
+    const root = container.shadowRoot;
+    if (!root || root.querySelector('[data-fastfill-toolbar-layout]')) return;
+
+    const styles = document.createElement('style');
+    styles.dataset.fastfillToolbarLayout = '';
+    styles.textContent = `
+      [data-epdf-i="main-toolbar"] {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      }
+    `;
+    root.append(styles);
+  };
+
+  const customizeViewerUI = (registry: PluginRegistry) => {
+    const ui = registry.getPlugin('ui')?.provides?.() as
+      | UICapability
+      | undefined;
+    if (!ui) return;
+
+    const schema = ui.getSchema();
+    const annotationToolbar = schema.toolbars['annotation-toolbar'];
+    const insertToolbar = schema.toolbars['insert-toolbar'];
+    const mainToolbar = schema.toolbars['main-toolbar'];
+    if (!annotationToolbar || !insertToolbar || !mainToolbar) return;
+
+    const insertButtons = insertToolbar.items.flatMap((item) =>
+      item.type === 'group' && item.id === 'insert-tools'
+        ? item.items
+            .filter(
+              (child) =>
+                child.type === 'command-button' &&
+                child.categories?.includes('insert')
+            )
+            .map((child) => ({
+              ...child,
+              id: `annotate-${child.id}`,
+              categories: child.categories?.filter(
+                (category) => category !== 'insert'
+              )
+            }))
+        : []
+    );
+
+    ui.mergeSchema({
+      toolbars: {
+        'annotation-toolbar': {
+          ...annotationToolbar,
+          items: annotationToolbar.items.map((item) => {
+            if (item.type !== 'group' || item.id !== 'annotation-tools') {
+              return item;
+            }
+
+            const dividerIndex = item.items.findIndex(
+              (child) => child.id === 'annotation-tools-divider-1'
+            );
+            const insertionIndex = dividerIndex === -1
+              ? item.items.length
+              : dividerIndex;
+
+            return {
+              ...item,
+              items: [
+                ...item.items.slice(0, insertionIndex),
+                {
+                  type: 'divider' as const,
+                  id: 'annotation-insert-tools-divider',
+                  orientation: 'vertical' as const
+                },
+                ...insertButtons,
+                ...item.items.slice(insertionIndex)
+              ]
+            };
+          })
+        }
+      }
+    });
+
+    const findMainItem = (id: string) =>
+      mainToolbar.items.find((item) => item.id === id);
+    const leftItems = ['left-group', 'divider-2', 'center-group']
+      .map(findMainItem);
+    const centerItems = ['mode-select-button', 'mode-tabs']
+      .map(findMainItem);
+    const rightGroup = findMainItem('right-group');
+
+    if (
+      leftItems.some((item) => !item) ||
+      centerItems.some((item) => !item) ||
+      !rightGroup
+    ) return;
+
+    ui.mergeSchema({
+      toolbars: {
+        'main-toolbar': {
+          ...mainToolbar,
+          items: [
+            {
+              type: 'group',
+              id: 'main-toolbar-left',
+              alignment: 'start',
+              gap: 2,
+              items: leftItems as ToolbarItem[]
+            },
+            {
+              type: 'group',
+              id: 'main-toolbar-center',
+              alignment: 'center',
+              gap: 2,
+              items: centerItems as ToolbarItem[]
+            },
+            rightGroup
+          ]
+        }
+      }
+    });
+
+  };
 </script>
 
 <div class="viewer">
@@ -11,16 +137,13 @@
       src,
       theme: {
         preference: 'dark'
+      },
+      ui: {
+        disabledCategories: ['insert']
       }
     }}
-    style="width: 100%; height: 100%;"
+    oninit={captureViewerContainer}
+    onready={customizeViewerUI}
+    class="w-full h-screen"
   />
 </div>
-
-<style>
-  .viewer {
-    width: 100%;
-    height: 80vh;
-    min-height: 500px;
-  }
-</style>

@@ -20,3 +20,7 @@
     @apply font-sans;
   }
 }
+
+[data-epdf] [data-epdf-i="main-toolbar"] {
+    @apply grid! grid-cols-3!
+}

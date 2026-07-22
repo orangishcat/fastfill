@@ -1,5 +1,7 @@
 # build output
 dist/
+AGENTS.md
+
 # generated types
 .astro/
 
